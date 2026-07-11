@@ -1,0 +1,13 @@
+{
+  "input": "C:\\Users\\neko\\Desktop\\github\\quick_cppkh\\benchmarks\\zip_random_selected.txt",
+  "items": 5,
+  "repeat": 5,
+  "cppkh_median_seconds": 3.059244599979138,
+  "quick_cppkh_median_seconds": 0.7718431999965105,
+  "cppkh_best_seconds": 2.9425893000152428,
+  "quick_cppkh_best_seconds": 0.7577545999956783,
+  "cppkh_over_quick_speed_ratio": 3.9635571058901196,
+  "outputs_match": true,
+  "cppkh_result_count": 5,
+  "quick_cppkh_result_count": 5
+}

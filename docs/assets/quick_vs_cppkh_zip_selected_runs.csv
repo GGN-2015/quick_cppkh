@@ -1,0 +1,11 @@
+engine,repeat,seconds,exit_code,result_count
+cppkh,1,3.071320200,0,5
+quick_cppkh,1,0.766781600,0,5
+cppkh,2,3.077829500,0,5
+quick_cppkh,2,0.787008800,0,5
+cppkh,3,2.942589300,0,5
+quick_cppkh,3,0.757754600,0,5
+cppkh,4,3.026967700,0,5
+quick_cppkh,4,0.771843200,0,5
+cppkh,5,3.059244600,0,5
+quick_cppkh,5,0.856065100,0,5
