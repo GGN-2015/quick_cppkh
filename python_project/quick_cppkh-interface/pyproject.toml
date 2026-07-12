@@ -1,0 +1,39 @@
+[project]
+name = "quick-cppkh-interface"
+version = "0.1.0"
+description = "Python interface for quick_cppkh, racing direct cppkh against pd_simplify plus cppkh."
+authors = [
+    {name = "GGN_2015", email = "neko@jlulug.org"}
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "cpp-simple-interface>=0.1.2",
+    "pd-code-sanity>=0.0.1",
+    "pd-code-delete-nugatory",
+    "pd-code-de-r1"
+]
+
+[project.urls]
+Homepage = "https://github.com/GGN-2015/quick_cppkh"
+Repository = "https://github.com/GGN-2015/quick_cppkh"
+Documentation = "https://github.com/GGN-2015/quick_cppkh/blob/main/docs/ALGORITHM.md"
+
+[project.scripts]
+quick-cppkh-interface = "quick_cppkh_interface.main:main"
+
+[tool.poetry]
+packages = [{ include = "quick_cppkh_interface" }]
+include = [
+    { path = "build_backend/quick_cppkh_interface_build_backend.py", format = ["sdist"] },
+    { path = "quick_cppkh_interface/data/src/quick_cppkh/main.cpp", format = ["sdist", "wheel"] },
+    { path = "quick_cppkh_interface/data/src/cppkh/main.cpp", format = ["sdist", "wheel"] },
+    { path = "quick_cppkh_interface/data/src/pd_simplify/src/main.cpp", format = ["sdist", "wheel"] },
+    { path = "quick_cppkh_interface/data/src/pd_simplify/include/pdcode_simplify/pdcode_simplify.hpp", format = ["sdist", "wheel"] }
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0", "setuptools>=61"]
+build-backend = "quick_cppkh_interface_build_backend"
+backend-path = ["build_backend"]

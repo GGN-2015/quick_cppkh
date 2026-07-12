@@ -91,3 +91,23 @@ and reproduction notes.
 
 - [Algorithm manual](docs/ALGORITHM.md)
 - [Benchmark report](docs/BENCHMARKS.md)
+
+## Python Package
+
+`quick-cppkh-interface` provides a Python API compatible with
+`cppkh-interface`:
+
+```python
+import quick_cppkh_interface as cppkh_interface
+
+pd_code = [[1, 5, 2, 4], [3, 1, 4, 6], [5, 3, 6, 2]]
+print(cppkh_interface.solve_khovanov(pd_code))
+print(cppkh_interface.solve_many_khovanov([pd_code, pd_code]))
+```
+
+Build and publish from `python_project/quick_cppkh-interface`:
+
+```sh
+poetry build
+poetry publish
+```
