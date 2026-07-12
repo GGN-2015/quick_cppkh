@@ -71,15 +71,23 @@ overhead. The optimization benchmark uses selected zip-random PD codes from the
 the Khovanov workload.
 
 ```sh
+python -m pip install matplotlib psutil
 python tools/benchmark.py --input benchmarks/zip_random_selected.txt --repeat 5
 ```
 
 Local Windows result from this repository:
 
-- `cppkh` median: `2.096003s`
-- `quick_cppkh` median: `0.578577s`
-- Speed ratio: `3.623x`
+- `cppkh` median: `2.056645s`, median peak RSS `86.87 MiB`
+- `quick_cppkh` median: `0.577455s`, median peak RSS `33.41 MiB`
+- Speed ratio: `3.562x`
 - Output comparison: OK
+
+![quick_cppkh vs cppkh runtime and memory chart](docs/assets/quick_vs_cppkh_zip_selected.png)
 
 See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for the chart, raw timing files,
 and reproduction notes.
+
+## Documentation
+
+- [Algorithm manual](docs/ALGORITHM.md)
+- [Benchmark report](docs/BENCHMARKS.md)

@@ -1,8 +1,8 @@
 # Benchmarks
 
-`quick_cppkh` follows the timing-only style of the upstream `cppkh` benchmark
-notes here. Memory is intentionally not compared because the quick route runs
-extra processes by design.
+`quick_cppkh` compares both wall-clock runtime and peak resident memory. Memory
+is measured as peak RSS over the full process tree, so the `quick_cppkh` row
+includes the wrapper and any live child processes from both racing routes.
 
 ## Local Run
 
@@ -13,20 +13,23 @@ Machine-local run on Windows, 2026-07-12:
 - Input: `benchmarks/zip_random_selected.txt`, 5 selected zip-random PD codes
   from the `cpp-pd-code-simplify` benchmark fixture.
 - Repeats: 5.
+- Memory sampler: `psutil`, process-tree RSS sampled every 0.01 seconds.
 - Command:
 
 ```sh
+python -m pip install matplotlib psutil
 python tools/benchmark.py --input benchmarks/zip_random_selected.txt --repeat 5 --out-dir benchmark/quick-vs-cppkh-zip-selected
 ```
 
-| Engine | Median time | Best time | Results | Compare |
-| --- | ---: | ---: | ---: | --- |
-| `cppkh` | 2.096003s | 1.911956s | 5 | OK |
-| `quick_cppkh` | 0.578577s | 0.572170s | 5 | OK |
+| Engine | Median time | Best time | Median peak RSS | Max peak RSS | Results | Compare |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `cppkh` | 2.056645s | 2.027057s | 86.87 MiB | 86.90 MiB | 5 | OK |
+| `quick_cppkh` | 0.577455s | 0.572184s | 33.41 MiB | 33.51 MiB | 5 | OK |
 
-`cppkh / quick_cppkh = 3.622687x`, lower runtime is better.
+Runtime ratio `cppkh / quick_cppkh = 3.561567x`, lower runtime is better.
+Peak RSS ratio `quick_cppkh / cppkh = 0.384567x`, lower memory is better.
 
-![quick_cppkh vs cppkh runtime chart](assets/quick_vs_cppkh_zip_selected.png)
+![quick_cppkh vs cppkh runtime and memory chart](assets/quick_vs_cppkh_zip_selected.png)
 
 Raw files:
 
