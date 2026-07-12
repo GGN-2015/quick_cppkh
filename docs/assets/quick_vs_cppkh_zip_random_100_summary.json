@@ -1,0 +1,83 @@
+{
+  "input": "C:\\Users\\neko\\Desktop\\github\\quick_cppkh\\benchmarks\\zip_random_100.txt",
+  "items": 100,
+  "repeat": 5,
+  "engine_order": [
+    "cppkh",
+    "quick_cppkh",
+    "quick_cppkh_interface"
+  ],
+  "engines": {
+    "cppkh": {
+      "median_seconds": 14.831042599995271,
+      "best_seconds": 14.748593299998902,
+      "median_peak_rss_mib": 88.2265625,
+      "max_peak_rss_mib": 88.25390625,
+      "result_count": 100,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "outputs_match_cppkh": true
+    },
+    "quick_cppkh": {
+      "median_seconds": 14.904006600001594,
+      "best_seconds": 14.77115459999186,
+      "median_peak_rss_mib": 117.88671875,
+      "max_peak_rss_mib": 117.92578125,
+      "result_count": 100,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "outputs_match_cppkh": true
+    },
+    "quick_cppkh_interface": {
+      "median_seconds": 15.065402199994423,
+      "best_seconds": 15.025069800001802,
+      "median_peak_rss_mib": 150.7890625,
+      "max_peak_rss_mib": 152.3359375,
+      "result_count": 100,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "outputs_match_cppkh": true
+    }
+  },
+  "speed_ratios_vs_cppkh": {
+    "quick_cppkh": 0.9951044036704657,
+    "quick_cppkh_interface": 0.9844438537459532
+  },
+  "peak_rss_ratios_vs_cppkh": {
+    "quick_cppkh": 1.3361817054812717,
+    "quick_cppkh_interface": 1.70911183919242
+  },
+  "outputs_match": true,
+  "cppkh_median_seconds": 14.831042599995271,
+  "cppkh_best_seconds": 14.748593299998902,
+  "cppkh_median_peak_rss_mib": 88.2265625,
+  "cppkh_max_peak_rss_mib": 88.25390625,
+  "cppkh_result_count": 100,
+  "quick_cppkh_median_seconds": 14.904006600001594,
+  "quick_cppkh_best_seconds": 14.77115459999186,
+  "quick_cppkh_median_peak_rss_mib": 117.88671875,
+  "quick_cppkh_max_peak_rss_mib": 117.92578125,
+  "quick_cppkh_result_count": 100,
+  "quick_cppkh_interface_median_seconds": 15.065402199994423,
+  "quick_cppkh_interface_best_seconds": 15.025069800001802,
+  "quick_cppkh_interface_median_peak_rss_mib": 150.7890625,
+  "quick_cppkh_interface_max_peak_rss_mib": 152.3359375,
+  "quick_cppkh_interface_result_count": 100,
+  "cppkh_over_quick_speed_ratio": 0.9951044036704657,
+  "quick_over_cppkh_peak_rss_ratio": 1.3361817054812717
+}

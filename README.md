@@ -65,26 +65,25 @@ quick_cppkh --pd-file input.pd
 
 ## Benchmarks
 
-The default smoke benchmark is intentionally tiny and mostly measures process
-overhead. The optimization benchmark uses selected zip-random PD codes from the
-`cpp-pd-code-simplify` benchmark corpus where external simplification reduces
-the Khovanov workload.
+The default benchmark uses the complete deterministic 100-sample zip-random
+fixture from the `cpp-pd-code-simplify` benchmark corpus. The former
+five-sample optimization subset is no longer used.
 
 ```sh
 python -m pip install matplotlib psutil quick-cppkh-interface
-python tools/benchmark.py --input benchmarks/zip_random_selected.txt --repeat 5
+python tools/benchmark.py --input benchmarks/zip_random_100.txt --repeat 5
 ```
 
 Local Windows result from this repository:
 
-- `cppkh` median: `2.081889s`, median peak RSS `86.85 MiB`
-- `quick_cppkh` median: `0.633426s`, median peak RSS `33.38 MiB`
-- `quick_cppkh_interface` median: `0.823260s`, median peak RSS `66.05 MiB`
-- Speed ratios: `cppkh / quick_cppkh = 3.287x`,
-  `cppkh / quick_cppkh_interface = 2.529x`
+- `cppkh` median: `14.831043s`, median peak RSS `88.23 MiB`
+- `quick_cppkh` median: `14.904007s`, median peak RSS `117.89 MiB`
+- `quick_cppkh_interface` median: `15.065402s`, median peak RSS `150.79 MiB`
+- Speed ratios: `cppkh / quick_cppkh = 0.995x`,
+  `cppkh / quick_cppkh_interface = 0.984x`
 - Output comparison: OK for both quick implementations
 
-![quick_cppkh runtime and memory chart](docs/assets/quick_vs_cppkh_zip_selected.png)
+![quick_cppkh runtime and memory chart](docs/assets/quick_vs_cppkh_zip_random_100.png)
 
 See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for the chart, raw timing files,
 and reproduction notes.

@@ -20,7 +20,7 @@ from typing import Optional, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_INPUT = ROOT / "benchmarks" / "pd_codes.txt"
+DEFAULT_INPUT = ROOT / "benchmarks" / "zip_random_100.txt"
 DEFAULT_INTERFACE_PACKAGE_PATH = ROOT / "python_project" / "quick_cppkh-interface"
 INTERFACE_RUNNER = ROOT / "tools" / "benchmark_quick_cppkh_interface.py"
 
@@ -246,7 +246,7 @@ def write_svg_chart(path: Path, summary: dict[str, object]) -> None:
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
         '<rect width="100%" height="100%" fill="#ffffff"/>',
-        '<text x="32" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="700">quick_cppkh benchmark</text>',
+        f'<text x="32" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="700">quick_cppkh benchmark ({int(summary.get("items", 0))} PD codes)</text>',
         '<text x="32" y="72" font-family="Arial, sans-serif" font-size="14" fill="#555">Median runtime and process-tree peak RSS, lower is better</text>',
         '<text x="32" y="112" font-family="Arial, sans-serif" font-size="18" font-weight="700">Runtime</text>',
     ]
@@ -316,7 +316,7 @@ def write_chart(path: Path, summary: dict[str, object]) -> None:
                 ha="left",
                 va="center",
             )
-    fig.suptitle("quick_cppkh benchmark")
+    fig.suptitle(f"quick_cppkh benchmark ({int(summary.get('items', 0))} PD codes)")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=160)
