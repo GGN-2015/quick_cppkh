@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare quick_cppkh and cppkh runtime and peak RSS on a PD-code file."""
+"""Compare cppkh, quick_cppkh, and quick_cppkh_interface on a PD-code file."""
 
 from __future__ import annotations
 
@@ -14,12 +14,22 @@ import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = ROOT / "benchmarks" / "pd_codes.txt"
+DEFAULT_INTERFACE_PACKAGE_PATH = ROOT / "python_project" / "quick_cppkh-interface"
+INTERFACE_RUNNER = ROOT / "tools" / "benchmark_quick_cppkh_interface.py"
+
+
+@dataclass(frozen=True)
+class EngineSpec:
+    name: str
+    command: list[str]
+    env: Optional[dict[str, str]] = None
 
 
 def host_platform() -> str:
@@ -92,6 +102,7 @@ def run_once(
     timeout_sec: int,
     measure_memory: bool,
     sample_interval: float,
+    env: Optional[dict[str, str]] = None,
 ) -> dict[str, object]:
     psutil_process = None
     peak_rss = 0
@@ -103,6 +114,7 @@ def run_once(
             cwd=str(ROOT),
             stdout=stdout_file,
             stderr=stderr_file,
+            env=env,
         )
         if measure_memory:
             import psutil  # type: ignore
@@ -159,6 +171,27 @@ def median(values: list[float]) -> float:
     return statistics.median(values) if values else 0.0
 
 
+def engine_key(name: str) -> str:
+    return re.sub(r"[^0-9A-Za-z]+", "_", name).strip("_").lower()
+
+
+def display_label(name: str) -> str:
+    return "quick_cppkh\ninterface" if name == "quick_cppkh_interface" else name
+
+
+def engine_colors(names: Sequence[str]) -> list[str]:
+    palette = {
+        "cppkh": "#456990",
+        "quick_cppkh": "#49a078",
+        "quick_cppkh_interface": "#d9793d",
+    }
+    fallback = ["#7b6d8d", "#c44536", "#197278", "#6d597a"]
+    colors = []
+    for index, name in enumerate(names):
+        colors.append(palette.get(name, fallback[index % len(fallback)]))
+    return colors
+
+
 def write_csv(path: Path, runs: list[dict[str, object]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
@@ -185,46 +218,60 @@ def write_csv(path: Path, runs: list[dict[str, object]]) -> None:
 
 
 def write_svg_chart(path: Path, summary: dict[str, object]) -> None:
-    cpp = float(summary["cppkh_median_seconds"])
-    quick = float(summary["quick_cppkh_median_seconds"])
-    cpp_mem = float(summary.get("cppkh_median_peak_rss_mib") or 0.0)
-    quick_mem = float(summary.get("quick_cppkh_median_peak_rss_mib") or 0.0)
-    max_time = max(cpp, quick, 1e-9)
-    max_mem = max(cpp_mem, quick_mem, 1e-9)
-    width = 820
-    height = 470
-    left = 180
-    bar_width = 560
-    time_rows = [("cppkh", cpp, "#456990"), ("quick_cppkh", quick, "#49a078")]
-    mem_rows = [("cppkh", cpp_mem, "#456990"), ("quick_cppkh", quick_mem, "#49a078")]
+    engines = summary.get("engines", {})
+    if not isinstance(engines, dict):
+        raise TypeError("summary['engines'] must be a dict")
+
+    names = [str(name) for name in summary.get("engine_order", engines.keys())]
+    colors = engine_colors(names)
+    time_rows = [
+        (name, float(engines[name]["median_seconds"]), colors[index])  # type: ignore[index]
+        for index, name in enumerate(names)
+    ]
+    mem_rows = [
+        (name, float(engines[name].get("median_peak_rss_mib") or 0.0), colors[index])  # type: ignore[index]
+        for index, name in enumerate(names)
+    ]
+    max_time = max((value for _, value, _ in time_rows), default=1e-9)
+    max_mem = max((value for _, value, _ in mem_rows), default=1e-9)
+    max_time = max(max_time, 1e-9)
+    max_mem = max(max_mem, 1e-9)
+    width = 980
+    height = 560
+    left = 230
+    bar_width = 640
+    row_step = 48
+    runtime_start = 134
+    memory_start = runtime_start + len(names) * row_step + 72
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
         '<rect width="100%" height="100%" fill="#ffffff"/>',
-        '<text x="32" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="700">quick_cppkh vs cppkh benchmark</text>',
+        '<text x="32" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="700">quick_cppkh benchmark</text>',
         '<text x="32" y="72" font-family="Arial, sans-serif" font-size="14" fill="#555">Median runtime and process-tree peak RSS, lower is better</text>',
         '<text x="32" y="112" font-family="Arial, sans-serif" font-size="18" font-weight="700">Runtime</text>',
     ]
     for index, (label, value, color) in enumerate(time_rows):
-        y = 132 + index * 54
+        y = runtime_start + index * row_step
         w = max(2, int(bar_width * value / max_time))
         parts.append(f'<text x="32" y="{y + 24}" font-family="Arial, sans-serif" font-size="18">{label}</text>')
         parts.append(f'<rect x="{left}" y="{y}" width="{w}" height="30" rx="3" fill="{color}"/>')
         parts.append(
             f'<text x="{left + w + 12}" y="{y + 21}" font-family="Arial, sans-serif" font-size="15">{value:.6f}s</text>'
         )
-    parts.append('<text x="32" y="268" font-family="Arial, sans-serif" font-size="18" font-weight="700">Peak RSS</text>')
+    parts.append(
+        f'<text x="32" y="{memory_start - 28}" font-family="Arial, sans-serif" font-size="18" font-weight="700">Peak RSS</text>'
+    )
     for index, (label, value, color) in enumerate(mem_rows):
-        y = 288 + index * 54
+        y = memory_start + index * row_step
         w = max(2, int(bar_width * value / max_mem))
         parts.append(f'<text x="32" y="{y + 24}" font-family="Arial, sans-serif" font-size="18">{label}</text>')
         parts.append(f'<rect x="{left}" y="{y}" width="{w}" height="30" rx="3" fill="{color}"/>')
         parts.append(
             f'<text x="{left + w + 12}" y="{y + 21}" font-family="Arial, sans-serif" font-size="15">{value:.3f} MiB</text>'
         )
-    speedup = float(summary["cppkh_over_quick_speed_ratio"])
-    parts.append(
-        f'<text x="32" y="438" font-family="Arial, sans-serif" font-size="16" fill="#222">runtime speed ratio: cppkh / quick_cppkh = {speedup:.3f}x</text>'
-    )
+    ratios = summary.get("speed_ratios_vs_cppkh", {})
+    ratio_text = ", ".join(f"cppkh / {name} = {float(value):.3f}x" for name, value in ratios.items())
+    parts.append(f'<text x="32" y="{height - 34}" font-family="Arial, sans-serif" font-size="16" fill="#222">{ratio_text}</text>')
     parts.append("</svg>")
     path.write_text("\n".join(parts) + "\n", encoding="utf-8")
 
@@ -236,36 +283,80 @@ def write_chart(path: Path, summary: dict[str, object]) -> None:
         write_svg_chart(path.with_suffix(".svg"), summary)
         return
 
-    labels = ["cppkh", "quick_cppkh"]
-    time_values = [float(summary["cppkh_median_seconds"]), float(summary["quick_cppkh_median_seconds"])]
+    engines = summary.get("engines", {})
+    if not isinstance(engines, dict):
+        raise TypeError("summary['engines'] must be a dict")
+
+    names = [str(name) for name in summary.get("engine_order", engines.keys())]
+    labels = [display_label(name) for name in names]
+    time_values = [float(engines[name]["median_seconds"]) for name in names]  # type: ignore[index]
     mem_values = [
-        float(summary.get("cppkh_median_peak_rss_mib") or 0.0),
-        float(summary.get("quick_cppkh_median_peak_rss_mib") or 0.0),
+        float(engines[name].get("median_peak_rss_mib") or 0.0)  # type: ignore[index]
+        for name in names
     ]
-    colors = ["#456990", "#49a078"]
-    fig, axes = plt.subplots(1, 2, figsize=(10.8, 4.4))
-    for ax, values, ylabel, title, suffix, precision in [
+    colors = engine_colors(names)
+    fig, axes = plt.subplots(1, 2, figsize=(12.2, 4.8))
+    for ax, values, xlabel, title, suffix, precision in [
         (axes[0], time_values, "median seconds", "Runtime", "s", 4),
         (axes[1], mem_values, "median peak RSS (MiB)", "Memory", " MiB", 2),
     ]:
-        bars = ax.bar(labels, values, color=colors)
-        ax.set_ylabel(ylabel)
+        bars = ax.barh(labels, values, color=colors)
+        ax.set_xlabel(xlabel)
         ax.set_title(title)
-        ax.grid(axis="y", color="#dddddd", linewidth=0.8)
+        ax.grid(axis="x", color="#dddddd", linewidth=0.8)
         ax.set_axisbelow(True)
+        max_value = max(values) if values else 0.0
+        ax.set_xlim(0, max_value * 1.22 if max_value > 0 else 1.0)
+        ax.invert_yaxis()
         for bar, value in zip(bars, values):
             ax.text(
-                bar.get_x() + bar.get_width() / 2,
                 value,
+                bar.get_y() + bar.get_height() / 2,
                 f"{value:.{precision}f}{suffix}",
-                ha="center",
-                va="bottom",
+                ha="left",
+                va="center",
             )
-    fig.suptitle("quick_cppkh vs cppkh benchmark")
+    fig.suptitle("quick_cppkh benchmark")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=160)
     plt.close(fig)
+
+
+def quick_interface_command(args: argparse.Namespace, input_path: Path, cache_dir: Path) -> list[str]:
+    command = [
+        str(args.quick_interface_python),
+        str(INTERFACE_RUNNER),
+        "--input",
+        str(input_path),
+        "--cache-dir",
+        str(cache_dir),
+        "--threads",
+        str(args.threads),
+    ]
+    package_path = Path(args.quick_interface_package_path) if args.quick_interface_package_path else None
+    if package_path is not None:
+        command.extend(["--package-path", str(package_path)])
+    if args.quick_interface_cxx:
+        command.extend(["--cxx", str(args.quick_interface_cxx)])
+    if args.raw_pd:
+        command.append("--raw-pd")
+    return command
+
+
+def prepare_quick_interface(command: list[str]) -> None:
+    result = subprocess.run(
+        [*command, "--compile-only"],
+        cwd=str(ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        detail = "\n".join(part for part in [result.stdout.strip(), result.stderr.strip()] if part)
+        raise RuntimeError(f"quick_cppkh_interface preparation failed:\n{detail}")
 
 
 def benchmark(args: argparse.Namespace) -> dict[str, object]:
@@ -284,7 +375,7 @@ def benchmark(args: argparse.Namespace) -> dict[str, object]:
     if not cppkh_exe.exists():
         raise FileNotFoundError(f"cppkh not found: {cppkh_exe}")
 
-    base_args = ["--pd-file", str(input_path), "--quiet"]
+    base_args = ["--pd-file", str(input_path), "--quiet", "--threads", str(args.threads)]
     if args.raw_pd:
         base_args.append("--no-simplify-pd")
     if not args.no_memory:
@@ -296,66 +387,110 @@ def benchmark(args: argparse.Namespace) -> dict[str, object]:
                 "or pass --no-memory"
             ) from exc
 
+    engines = [
+        EngineSpec("cppkh", [str(cppkh_exe), *base_args]),
+        EngineSpec(
+            "quick_cppkh",
+            [
+                str(quick_exe),
+                "--cppkh-exe",
+                str(cppkh_exe),
+                *base_args,
+            ],
+        ),
+    ]
+    if not args.skip_quick_interface:
+        if not INTERFACE_RUNNER.exists():
+            raise FileNotFoundError(f"quick_cppkh_interface benchmark runner not found: {INTERFACE_RUNNER}")
+        cache_dir = Path(args.quick_interface_cache_dir) if args.quick_interface_cache_dir else out_dir / "quick_cppkh_interface_cache"
+        interface_command = quick_interface_command(args, input_path, cache_dir)
+        print("prepare: quick_cppkh_interface", flush=True)
+        prepare_quick_interface(interface_command)
+        engines.append(EngineSpec("quick_cppkh_interface", interface_command))
+
     runs: list[dict[str, object]] = []
     for repeat in range(args.repeat):
-        print(f"run {repeat + 1}/{args.repeat}: cppkh", flush=True)
-        runs.append(
-            run_once(
-                "cppkh",
-                [str(cppkh_exe), *base_args],
-                args.timeout_sec,
-                not args.no_memory,
-                args.memory_sample_interval,
+        for engine in engines:
+            print(f"run {repeat + 1}/{args.repeat}: {engine.name}", flush=True)
+            runs.append(
+                run_once(
+                    engine.name,
+                    engine.command,
+                    args.timeout_sec,
+                    not args.no_memory,
+                    args.memory_sample_interval,
+                    engine.env,
+                )
             )
-        )
-        print(f"run {repeat + 1}/{args.repeat}: quick_cppkh", flush=True)
-        runs.append(
-            run_once(
-                "quick_cppkh",
-                [
-                    str(quick_exe),
-                    "--cppkh-exe",
-                    str(cppkh_exe),
-                    *base_args,
-                ],
-                args.timeout_sec,
-                not args.no_memory,
-                args.memory_sample_interval,
-            )
-        )
 
-    cpp_runs = [run for run in runs if run["name"] == "cppkh"]
-    quick_runs = [run for run in runs if run["name"] == "quick_cppkh"]
-    cpp_times = [float(run["seconds"]) for run in cpp_runs]
-    quick_times = [float(run["seconds"]) for run in quick_runs]
-    cpp_memory = [float(run["peak_rss_mib"]) for run in cpp_runs if run["peak_rss_mib"] is not None]
-    quick_memory = [float(run["peak_rss_mib"]) for run in quick_runs if run["peak_rss_mib"] is not None]
-    cpp_results = cpp_runs[-1]["results"] if cpp_runs else []
-    quick_results = quick_runs[-1]["results"] if quick_runs else []
-    match = cpp_results == quick_results
+    runs_by_engine = {
+        engine.name: [run for run in runs if run["name"] == engine.name]
+        for engine in engines
+    }
+    baseline_runs = runs_by_engine["cppkh"]
+    engine_summaries: dict[str, dict[str, object]] = {}
+    for engine in engines:
+        engine_runs = runs_by_engine[engine.name]
+        times = [float(run["seconds"]) for run in engine_runs]
+        memory = [float(run["peak_rss_mib"]) for run in engine_runs if run["peak_rss_mib"] is not None]
+        result_count = len(engine_runs[-1]["results"]) if engine_runs else 0
+        if engine.name == "cppkh":
+            outputs_match_cppkh = all(int(run["exit_code"]) == 0 for run in engine_runs)
+        else:
+            outputs_match_cppkh = all(
+                int(run["exit_code"]) == 0
+                and int(baseline_runs[index]["exit_code"]) == 0
+                and run["results"] == baseline_runs[index]["results"]
+                for index, run in enumerate(engine_runs)
+                if index < len(baseline_runs)
+            )
+        engine_summaries[engine.name] = {
+            "median_seconds": median(times),
+            "best_seconds": min(times) if times else None,
+            "median_peak_rss_mib": median(memory) if memory else None,
+            "max_peak_rss_mib": max(memory) if memory else None,
+            "result_count": result_count,
+            "exit_codes": [run["exit_code"] for run in engine_runs],
+            "outputs_match_cppkh": outputs_match_cppkh,
+        }
+
+    baseline_time = float(engine_summaries["cppkh"]["median_seconds"])
+    baseline_memory = engine_summaries["cppkh"]["median_peak_rss_mib"]
+    speed_ratios = {}
+    memory_ratios = {}
+    for engine in engines:
+        if engine.name == "cppkh":
+            continue
+        engine_time = float(engine_summaries[engine.name]["median_seconds"])
+        engine_memory = engine_summaries[engine.name]["median_peak_rss_mib"]
+        speed_ratios[engine.name] = (baseline_time / engine_time) if engine_time > 0 else 0
+        memory_ratios[engine.name] = (
+            float(engine_memory) / float(baseline_memory)
+            if engine_memory is not None and baseline_memory is not None and float(baseline_memory) > 0
+            else None
+        )
+    match = all(bool(summary["outputs_match_cppkh"]) for summary in engine_summaries.values())
 
     summary: dict[str, object] = {
         "input": str(input_path),
         "items": sum(1 for line in input_path.read_text(encoding="utf-8").splitlines() if line.strip()),
         "repeat": args.repeat,
-        "cppkh_median_seconds": median(cpp_times),
-        "quick_cppkh_median_seconds": median(quick_times),
-        "cppkh_best_seconds": min(cpp_times) if cpp_times else None,
-        "quick_cppkh_best_seconds": min(quick_times) if quick_times else None,
-        "cppkh_median_peak_rss_mib": median(cpp_memory) if cpp_memory else None,
-        "quick_cppkh_median_peak_rss_mib": median(quick_memory) if quick_memory else None,
-        "cppkh_max_peak_rss_mib": max(cpp_memory) if cpp_memory else None,
-        "quick_cppkh_max_peak_rss_mib": max(quick_memory) if quick_memory else None,
-        "cppkh_over_quick_speed_ratio": (median(cpp_times) / median(quick_times)) if median(quick_times) > 0 else 0,
-        "quick_over_cppkh_peak_rss_ratio": (
-            median(quick_memory) / median(cpp_memory)
-            if cpp_memory and quick_memory and median(cpp_memory) > 0
-            else None
-        ),
+        "engine_order": [engine.name for engine in engines],
+        "engines": engine_summaries,
+        "speed_ratios_vs_cppkh": speed_ratios,
+        "peak_rss_ratios_vs_cppkh": memory_ratios,
         "outputs_match": match,
-        "cppkh_result_count": len(cpp_results),
-        "quick_cppkh_result_count": len(quick_results),
     }
+    for engine in engines:
+        key = engine_key(engine.name)
+        engine_summary = engine_summaries[engine.name]
+        summary[f"{key}_median_seconds"] = engine_summary["median_seconds"]
+        summary[f"{key}_best_seconds"] = engine_summary["best_seconds"]
+        summary[f"{key}_median_peak_rss_mib"] = engine_summary["median_peak_rss_mib"]
+        summary[f"{key}_max_peak_rss_mib"] = engine_summary["max_peak_rss_mib"]
+        summary[f"{key}_result_count"] = engine_summary["result_count"]
+    summary["cppkh_over_quick_speed_ratio"] = speed_ratios.get("quick_cppkh", 0)
+    summary["quick_over_cppkh_peak_rss_ratio"] = memory_ratios.get("quick_cppkh")
 
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     write_csv(out_dir / "runs.csv", runs)
@@ -380,8 +515,34 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--out-dir", default=str(ROOT / "benchmark" / "quick-vs-cppkh"), help="output directory")
     parser.add_argument("--repeat", type=int, default=3, help="number of repeats")
     parser.add_argument("--timeout-sec", type=int, default=0, help="per-run timeout, 0 disables")
+    parser.add_argument("--threads", default="1", help="threads value passed to cppkh-compatible engines")
     parser.add_argument("--raw-pd", action="store_true", help="pass --no-simplify-pd to cppkh")
     parser.add_argument("--no-memory", action="store_true", help="disable peak RSS measurement")
+    parser.add_argument(
+        "--skip-quick-interface",
+        action="store_true",
+        help="omit quick_cppkh_interface from the benchmark",
+    )
+    parser.add_argument(
+        "--quick-interface-python",
+        default=sys.executable,
+        help="Python executable used to run quick_cppkh_interface",
+    )
+    parser.add_argument(
+        "--quick-interface-package-path",
+        default=str(DEFAULT_INTERFACE_PACKAGE_PATH),
+        help="local quick-cppkh-interface project path added to sys.path; pass an empty value to use an installed package",
+    )
+    parser.add_argument(
+        "--quick-interface-cache-dir",
+        default="",
+        help="cache directory for quick_cppkh_interface compiled executables",
+    )
+    parser.add_argument(
+        "--quick-interface-cxx",
+        default=os.environ.get("CXX", ""),
+        help="C++ compiler path passed to quick_cppkh_interface compilation",
+    )
     parser.add_argument(
         "--memory-sample-interval",
         type=float,

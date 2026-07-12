@@ -98,9 +98,9 @@ routes compute Khovanov homology of equivalent diagrams:
 - Direct route: original diagram handled by `cppkh`.
 - Simplified route: diagram reduced by `pd_simplify`, then computed by `cppkh`.
 
-The benchmark script checks output equality between `cppkh` and `quick_cppkh`
-for the selected benchmark dataset. A mismatch is treated as a benchmark
-failure signal, not as a tolerated performance artifact.
+The benchmark script checks output equality between `cppkh`, `quick_cppkh`, and
+`quick_cppkh_interface` for the selected benchmark dataset. A mismatch is
+treated as a benchmark failure signal, not as a tolerated performance artifact.
 
 ## Process And Platform Notes
 

@@ -1,8 +1,9 @@
 # Benchmarks
 
-`quick_cppkh` compares both wall-clock runtime and peak resident memory. Memory
-is measured as peak RSS over the full process tree, so the `quick_cppkh` row
-includes the wrapper and any live child processes from both racing routes.
+`quick_cppkh` compares both wall-clock runtime and peak resident memory against
+the upstream `cppkh` executable and the Python `quick_cppkh_interface` package.
+Memory is measured as peak RSS over the full process tree, so the wrapper rows
+include their launcher process and any live child processes from racing routes.
 
 ## Local Run
 
@@ -10,6 +11,7 @@ Machine-local run on Windows, 2026-07-12:
 
 - Compiler: WinLibs GCC 16.1.0 x86_64 UCRT POSIX SEH.
 - `cppkh` upstream: `GGN-2015/cppkh` main at `37b3cc3`.
+- Python interface: local `python_project/quick_cppkh-interface` source tree.
 - Input: `benchmarks/zip_random_selected.txt`, 5 selected zip-random PD codes
   from the `cpp-pd-code-simplify` benchmark fixture.
 - Repeats: 5.
@@ -17,19 +19,22 @@ Machine-local run on Windows, 2026-07-12:
 - Command:
 
 ```sh
-python -m pip install matplotlib psutil
+python -m pip install matplotlib psutil quick-cppkh-interface
 python tools/benchmark.py --input benchmarks/zip_random_selected.txt --repeat 5 --out-dir benchmark/quick-vs-cppkh-zip-selected
 ```
 
 | Engine | Median time | Best time | Median peak RSS | Max peak RSS | Results | Compare |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `cppkh` | 2.056645s | 2.027057s | 86.87 MiB | 86.90 MiB | 5 | OK |
-| `quick_cppkh` | 0.577455s | 0.572184s | 33.41 MiB | 33.51 MiB | 5 | OK |
+| `cppkh` | 2.081889s | 2.074175s | 86.85 MiB | 87.01 MiB | 5 | OK |
+| `quick_cppkh` | 0.633426s | 0.583451s | 33.38 MiB | 33.54 MiB | 5 | OK |
+| `quick_cppkh_interface` | 0.823260s | 0.752702s | 66.05 MiB | 67.58 MiB | 5 | OK |
 
-Runtime ratio `cppkh / quick_cppkh = 3.561567x`, lower runtime is better.
-Peak RSS ratio `quick_cppkh / cppkh = 0.384567x`, lower memory is better.
+Runtime ratios: `cppkh / quick_cppkh = 3.286711x`,
+`cppkh / quick_cppkh_interface = 2.528836x`; lower runtime is better.
+Peak RSS ratios: `quick_cppkh / cppkh = 0.384339x`,
+`quick_cppkh_interface / cppkh = 0.760536x`; lower memory is better.
 
-![quick_cppkh vs cppkh runtime and memory chart](assets/quick_vs_cppkh_zip_selected.png)
+![quick_cppkh runtime and memory chart](assets/quick_vs_cppkh_zip_selected.png)
 
 Raw files:
 
@@ -45,4 +50,6 @@ is already so short that the extra process scheduling overhead dominates.
 The selected zip-random dataset is the intended optimization benchmark. These
 PD codes are large enough that the external `pd_simplify` route can reduce the
 diagram before Khovanov computation, while the direct `cppkh` route remains the
-fallback if simplification does not help.
+fallback if simplification does not help. `quick_cppkh_interface` exercises the
+same racing computation through the Python package, so its timing and memory
+numbers include Python startup and API-layer overhead.
