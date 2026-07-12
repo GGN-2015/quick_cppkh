@@ -6,9 +6,10 @@ extra processes by design.
 
 ## Local Run
 
-Machine-local run on Windows, 2026-07-11:
+Machine-local run on Windows, 2026-07-12:
 
 - Compiler: WinLibs GCC 16.1.0 x86_64 UCRT POSIX SEH.
+- `cppkh` upstream: `GGN-2015/cppkh` main at `37b3cc3`.
 - Input: `benchmarks/zip_random_selected.txt`, 5 selected zip-random PD codes
   from the `cpp-pd-code-simplify` benchmark fixture.
 - Repeats: 5.
@@ -20,10 +21,10 @@ python tools/benchmark.py --input benchmarks/zip_random_selected.txt --repeat 5 
 
 | Engine | Median time | Best time | Results | Compare |
 | --- | ---: | ---: | ---: | --- |
-| `cppkh` | 3.059245s | 2.942589s | 5 | OK |
-| `quick_cppkh` | 0.771843s | 0.757755s | 5 | OK |
+| `cppkh` | 2.096003s | 1.911956s | 5 | OK |
+| `quick_cppkh` | 0.578577s | 0.572170s | 5 | OK |
 
-`cppkh / quick_cppkh = 3.963557x`, lower runtime is better.
+`cppkh / quick_cppkh = 3.622687x`, lower runtime is better.
 
 ![quick_cppkh vs cppkh runtime chart](assets/quick_vs_cppkh_zip_selected.png)
 

@@ -389,6 +389,10 @@ bool is_simplify_control_option(const std::string& arg) {
     return arg == "--simplify-pd" || arg == "--no-simplify-pd" || arg == "--raw-pd";
 }
 
+bool is_direct_only_output_option(const std::string& arg) {
+    return arg == "--print-simplified-pd" || arg == "--print-crossing-signs";
+}
+
 struct Config {
     std::vector<std::string> direct_args;
     std::vector<std::string> simplify_args;
@@ -397,6 +401,7 @@ struct Config {
     std::string pd_simplify_exe;
     bool help = false;
     bool quick_help = false;
+    bool direct_only = false;
 };
 
 std::string require_value(int& i, int argc, char** argv, const std::string& option) {
@@ -429,6 +434,7 @@ Config parse_args(int argc, char** argv) {
             cfg.kh_after_simplify_args.push_back(value);
         } else {
             if (arg == "--help" || arg == "-h") cfg.help = true;
+            if (is_direct_only_output_option(arg)) cfg.direct_only = true;
             cfg.direct_args.push_back(arg);
             if (!starts_with_dash(arg)) {
                 cfg.simplify_args.push_back(arg);
@@ -789,7 +795,7 @@ int main(int argc, char** argv) {
         const std::string suffix = executable_suffix();
         cfg.cppkh_exe = resolve_tool(cfg.cppkh_exe, "QUICK_CPPKH_CPPKH", "cppkh" + suffix, self_dir);
 
-        if (cfg.help) return run_help_passthrough(cfg);
+        if (cfg.help || cfg.direct_only) return run_help_passthrough(cfg);
         cfg.pd_simplify_exe = resolve_tool(
             cfg.pd_simplify_exe,
             "QUICK_CPPKH_PD_SIMPLIFY",

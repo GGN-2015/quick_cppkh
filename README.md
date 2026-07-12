@@ -45,6 +45,11 @@ quick_cppkh --pd-file benchmarks/pd_codes.txt --quiet
 quick_cppkh --pd-dir samples
 ```
 
+Non-homology output modes such as `--print-simplified-pd` and
+`--print-crossing-signs` are passed through to `cppkh` directly. The two-route
+race is used only for Khovanov homology output, where both successful routes
+produce the same result.
+
 If the dependency executables are not beside `quick_cppkh`, pass them directly
 or set environment variables:
 
@@ -71,9 +76,9 @@ python tools/benchmark.py --input benchmarks/zip_random_selected.txt --repeat 5
 
 Local Windows result from this repository:
 
-- `cppkh` median: `3.059245s`
-- `quick_cppkh` median: `0.771843s`
-- Speed ratio: `3.964x`
+- `cppkh` median: `2.096003s`
+- `quick_cppkh` median: `0.578577s`
+- Speed ratio: `3.623x`
 - Output comparison: OK
 
 See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for the chart, raw timing files,
