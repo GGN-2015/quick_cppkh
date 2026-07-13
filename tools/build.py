@@ -18,6 +18,7 @@ from typing import Iterable, Optional, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 
 CPPKH_REPO = "https://github.com/GGN-2015/cppkh"
+CPPKH_REVISION = "ff0489e7763f727a798bcd3fac808534ab4d35f5"
 SIMPLIFY_REPO = "https://github.com/GGN-2015/cpp-pd-code-simplify"
 
 
@@ -68,9 +69,9 @@ def request_url(url: str, destination: Path, timeout: int = 120) -> None:
         destination.write_bytes(response.read())
 
 
-def download_archive(repo: str, destination: Path) -> bool:
+def download_archive(repo: str, destination: Path, revision: str = "main") -> bool:
     archive = destination.with_suffix(".zip")
-    url = repo + "/archive/refs/heads/main.zip"
+    url = repo + f"/archive/{revision}.zip"
     try:
         request_url(url, archive)
         with zipfile.ZipFile(archive) as zf:
@@ -92,41 +93,76 @@ def download_archive(repo: str, destination: Path) -> bool:
         return False
 
 
-def raw_url(repo: str, rel: str) -> str:
+def raw_url(repo: str, rel: str, revision: str = "main") -> str:
     name = repo.rsplit("/", 1)[-1]
     owner = repo.rsplit("/", 2)[-2]
-    return f"https://raw.githubusercontent.com/{owner}/{name}/main/{rel}"
+    return f"https://raw.githubusercontent.com/{owner}/{name}/{revision}/{rel}"
 
 
-def fetch_raw_files(repo: str, destination: Path, files: Iterable[str]) -> None:
+def fetch_raw_files(
+    repo: str,
+    destination: Path,
+    files: Iterable[str],
+    revision: str = "main",
+) -> None:
     for rel in files:
         target = destination / rel
         if target.exists():
             continue
         print(f"download {rel}", flush=True)
-        request_url(raw_url(repo, rel), target)
+        request_url(raw_url(repo, rel, revision), target)
+
+
+def source_revision(source: Path) -> str:
+    marker = source / ".quick_cppkh_revision"
+    if marker.exists():
+        return marker.read_text(encoding="utf-8").strip()
+    if (source / ".git").exists():
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(source),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    return ""
+
+
+def mark_source_revision(source: Path, revision: str) -> None:
+    (source / ".quick_cppkh_revision").write_text(revision + "\n", encoding="utf-8")
 
 
 def ensure_cppkh_source(deps_dir: Path, clean: bool) -> Path:
     source = deps_dir / "cppkh"
     if clean and source.exists():
         shutil.rmtree(source)
-    if (source / "src" / "main.cpp").exists():
+    if (source / "src" / "main.cpp").exists() and source_revision(source) == CPPKH_REVISION:
         return source
+    if source.exists():
+        print(f"refresh cppkh source to {CPPKH_REVISION[:7]}", flush=True)
+        shutil.rmtree(source)
     source.parent.mkdir(parents=True, exist_ok=True)
     if shutil.which("git"):
         try:
             run(["git", "clone", "--depth", "1", CPPKH_REPO + ".git", str(source)], cwd=ROOT)
+            run(["git", "fetch", "--depth", "1", "origin", CPPKH_REVISION], cwd=source)
+            run(["git", "checkout", "--detach", CPPKH_REVISION], cwd=source)
             return source
         except subprocess.CalledProcessError:
             shutil.rmtree(source, ignore_errors=True)
-    if download_archive(CPPKH_REPO, source):
+    if download_archive(CPPKH_REPO, source, CPPKH_REVISION):
+        mark_source_revision(source, CPPKH_REVISION)
         return source
     fetch_raw_files(
         CPPKH_REPO,
         source,
         ["src/main.cpp", "README.md", "LICENSE"],
+        CPPKH_REVISION,
     )
+    mark_source_revision(source, CPPKH_REVISION)
     return source
 
 

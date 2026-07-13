@@ -12,6 +12,7 @@ pd_code = [[1, 5, 2, 4], [3, 1, 4, 6], [5, 3, 6, 2]]
 
 print(quick_cppkh_interface.solve_khovanov(pd_code))
 print(quick_cppkh_interface.solve_many_khovanov([pd_code, pd_code]))
+print(quick_cppkh_interface.compute_signed_variants(pd_code, [[1, 1, 1]]))
 ```
 
 The package ships C++ source code in built distributions and compiles local
@@ -25,6 +26,12 @@ executables are cached for later calls:
 The default homology path races direct `cppkh` against `pd_simplify` followed
 by `cppkh --no-simplify-pd`, returning whichever successful route finishes
 first.
+
+The API is compatible with `cppkh-interface` 0.2.1. All four combinations of
+`de_r1` and `de_k8` are accepted for single and batch calls. The default
+`(True, True)` combination uses the quick race; mixed combinations use cppkh's
+independent native simplification switches. `compile_cppkh_shared` and
+`compute_signed_variants` expose the new signed-variant C API.
 
 ## Install
 
@@ -51,9 +58,13 @@ python your_script.py
 From this directory:
 
 ```sh
-poetry build
+python -m build
 poetry publish
 ```
+
+The PEP 517 build step runs the custom backend that embeds the tested C++
+sources. Publish the existing artifacts with Poetry; do not use
+`poetry publish --build`.
 
 For local testing:
 

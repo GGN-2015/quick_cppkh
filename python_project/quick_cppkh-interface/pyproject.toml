@@ -1,6 +1,6 @@
 [project]
 name = "quick-cppkh-interface"
-version = "0.1.0"
+version = "0.2.1"
 description = "Python interface for quick_cppkh, racing direct cppkh against pd_simplify plus cppkh."
 authors = [
     {name = "GGN_2015", email = "neko@jlulug.org"}
@@ -9,10 +9,7 @@ license = "MIT"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "cpp-simple-interface>=0.1.2",
-    "pd-code-sanity>=0.0.1",
-    "pd-code-delete-nugatory",
-    "pd-code-de-r1"
+    "cpp-simple-interface>=0.1.2"
 ]
 
 [project.urls]
@@ -34,6 +31,6 @@ include = [
 ]
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0", "setuptools>=61"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "quick_cppkh_interface_build_backend"
 backend-path = ["build_backend"]

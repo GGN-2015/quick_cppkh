@@ -23,6 +23,17 @@ The wrapper forwards normal `cppkh` options to the direct route. Input options
 are also forwarded to `pd_simplify` so the simplify route sees the same source
 PD codes.
 
+cppkh `0.2.1` simplification controls are supported directly:
+
+```sh
+--simplify-r1 / --no-simplify-r1
+--simplify-nugatory / --no-simplify-nugatory
+```
+
+They configure the direct route. The simplify-then-compute route removes these
+flags before its final cppkh call and appends `--no-simplify-pd`, because that
+route has already completed a stronger external diagram simplification.
+
 Tool-location options are wrapper-specific:
 
 ```sh
@@ -101,6 +112,12 @@ routes compute Khovanov homology of equivalent diagrams:
 The benchmark script checks output equality between `cppkh`, `quick_cppkh`, and
 `quick_cppkh_interface` for the selected benchmark dataset. A mismatch is
 treated as a benchmark failure signal, not as a tolerated performance artifact.
+
+The Python package also tracks the cppkh-interface `0.2.1` API additions. Mixed
+`de_r1`/`de_k8` settings use raw cppkh with the independent native switches,
+while the default `(True, True)` setting keeps the two-route quick race.
+`compute_signed_variants` uses cppkh's shared-library C API and bypasses diagram
+simplification, matching upstream semantics.
 
 ## Process And Platform Notes
 

@@ -15,7 +15,8 @@ other route is terminated and the winning stdout/stderr is returned.
 
 Use the Python build script. It downloads or reuses the two upstream projects,
 builds `cppkh`, `pd_simplify`, and `quick_cppkh`, then stages them together in
-`dist/<platform>`.
+`dist/<platform>`. The tested cppkh revision is pinned to `ff0489e`; an older
+cached source snapshot is refreshed automatically.
 
 ```sh
 python tools/build.py
@@ -43,6 +44,7 @@ Use the same input style as `cppkh`:
 quick_cppkh --pd-code "PD[X[1,5,2,4],X[3,1,4,6],X[5,3,6,2]]"
 quick_cppkh --pd-file benchmarks/pd_codes.txt --quiet
 quick_cppkh --pd-dir samples
+quick_cppkh --pd-file input.pd --no-simplify-r1 --simplify-nugatory
 ```
 
 Non-homology output modes such as `--print-simplified-pd` and
@@ -76,11 +78,11 @@ python tools/benchmark.py --input benchmarks/zip_random_100.txt --repeat 5
 
 Local Windows result from this repository:
 
-- `cppkh` median: `14.831043s`, median peak RSS `88.23 MiB`
-- `quick_cppkh` median: `14.904007s`, median peak RSS `117.89 MiB`
-- `quick_cppkh_interface` median: `15.065402s`, median peak RSS `150.79 MiB`
+- `cppkh` median: `15.051396s`, median peak RSS `88.24 MiB`
+- `quick_cppkh` median: `15.124175s`, median peak RSS `117.80 MiB`
+- `quick_cppkh_interface` median: `15.234423s`, median peak RSS `151.51 MiB`
 - Speed ratios: `cppkh / quick_cppkh = 0.995x`,
-  `cppkh / quick_cppkh_interface = 0.984x`
+  `cppkh / quick_cppkh_interface = 0.988x`
 - Output comparison: OK for both quick implementations
 
 ![quick_cppkh runtime and memory chart](docs/assets/quick_vs_cppkh_zip_random_100.png)
@@ -104,11 +106,12 @@ import quick_cppkh_interface as cppkh_interface
 pd_code = [[1, 5, 2, 4], [3, 1, 4, 6], [5, 3, 6, 2]]
 print(cppkh_interface.solve_khovanov(pd_code))
 print(cppkh_interface.solve_many_khovanov([pd_code, pd_code]))
+print(cppkh_interface.compute_signed_variants(pd_code, [[1, 1, 1]]))
 ```
 
 Build and publish from `python_project/quick_cppkh-interface`:
 
 ```sh
-poetry build
+python -m build
 poetry publish
 ```

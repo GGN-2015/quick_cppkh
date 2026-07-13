@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import ctypes
 import hashlib
 import os
 import pathlib
@@ -12,14 +13,12 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass
 from importlib import resources
 from typing import Iterator, Optional, Sequence, Union
 
 import cpp_simple_interface
-import pd_code_de_r1
-import pd_code_delete_nugatory
-import pd_code_sanity
 
 
 PathLike = Union[str, os.PathLike]
@@ -89,10 +88,12 @@ def _as_crossings(pd_code: PdInput) -> list[list[int]]:
 
 
 def _check_sanity(crossings: list[list[int]]) -> None:
-    if crossings == []:
-        return
-    if not pd_code_sanity.sanity(crossings):
-        raise TypeError("pd_code does not satisfy PD-code sanity checks")
+    counts = {}
+    for crossing in crossings:
+        for label in crossing:
+            counts[label] = counts.get(label, 0) + 1
+    if any(count != 2 for count in counts.values()):
+        raise TypeError("each PD label must occur exactly twice")
 
 
 def normalize_pd_code(pd_code: PdInput) -> str:
@@ -172,6 +173,12 @@ def _cache_dir() -> pathlib.Path:
 
 def _exe_suffix() -> str:
     return ".exe" if platform.system() == "Windows" else ""
+
+
+def _shared_suffix() -> str:
+    if platform.system() == "Windows":
+        return ".dll"
+    return ".dylib" if platform.system() == "Darwin" else ".so"
 
 
 def _native_enabled() -> bool:
@@ -339,6 +346,20 @@ def compile_cppkh(
     return compile_quick_cppkh(force=force, cxx=cxx, extra_flags=extra_flags)
 
 
+def compile_cppkh_shared(*, force: bool = False) -> pathlib.Path:
+    """Compile and cache the raw cppkh C API shared library."""
+
+    with _packaged_source_paths() as source_paths:
+        flags = _base_flags("c++14") + ["-shared", "-DCPPKH_SHARED_LIBRARY"]
+        cache = _cache_dir() / _cache_key(source_paths, {"cppkh_shared": flags})
+        cache.mkdir(parents=True, exist_ok=True)
+        library = cache / f"cppkh{_shared_suffix()}"
+        if library.exists() and not force:
+            return library
+        _compile_one(source_paths["cppkh"], library, flags)
+        return library
+
+
 def get_quick_cppkh_executable() -> pathlib.Path:
     """Return the cached quick_cppkh path, compiling first when necessary."""
 
@@ -361,6 +382,67 @@ def get_pd_simplify_executable() -> pathlib.Path:
     """Return the cached pd_simplify path, compiling first when necessary."""
 
     return compile_executables().pd_simplify
+
+
+_shared_lock = threading.Lock()
+_shared_library = None
+_dll_directory_handles = []
+
+
+def _load_cppkh_shared():
+    global _shared_library
+    if _shared_library is not None:
+        return _shared_library
+
+    runtime_paths = _compiler_runtime_path_entries()
+    if runtime_paths:
+        os.environ["PATH"] = os.pathsep.join(runtime_paths + [os.environ.get("PATH", "")])
+    library_path = compile_cppkh_shared()
+    if platform.system() == "Windows" and hasattr(os, "add_dll_directory"):
+        for directory in [str(library_path.parent), *runtime_paths]:
+            _dll_directory_handles.append(os.add_dll_directory(directory))
+
+    library = ctypes.CDLL(str(library_path))
+    library.cppkh_compute_pd_signed_variants_ex.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
+    library.cppkh_compute_pd_signed_variants_ex.restype = ctypes.c_void_p
+    library.cppkh_last_error.restype = ctypes.c_char_p
+    library.cppkh_free.argtypes = [ctypes.c_void_p]
+    _shared_library = library
+    return library
+
+
+def compute_signed_variants(pd_code: PdInput, signs: Sequence[Sequence[int]]) -> list[str]:
+    """Compute explicit crossing-sign variants through cppkh's native C API.
+
+    This additive API does not simplify the PD code because every sign row
+    corresponds positionally to the original crossing list.
+    """
+
+    crossings = _as_crossings(pd_code)
+    _check_sanity(crossings)
+    rows = [list(row) for row in signs]
+    if not rows:
+        raise ValueError("at least one crossing-sign row is required")
+    if any(
+        len(row) != len(crossings) or any(sign not in (-1, 1) for sign in row)
+        for row in rows
+    ):
+        raise ValueError("each sign row must contain one +1/-1 value per crossing")
+
+    pd_text = _format_pd(crossings).encode("utf-8")
+    signs_text = "\n".join(" ".join(map(str, row)) for row in rows).encode("ascii")
+    with _shared_lock:
+        library = _load_cppkh_shared()
+        pointer = library.cppkh_compute_pd_signed_variants_ex(pd_text, signs_text, 1)
+        if not pointer:
+            error = library.cppkh_last_error()
+            detail = error.decode("utf-8", "replace") if error else "signed computation failed"
+            raise QuickCppkhInterfaceError(detail)
+        try:
+            result = ctypes.string_at(pointer).decode("utf-8")
+        finally:
+            library.cppkh_free(pointer)
+    return result.splitlines()
 
 
 def _subprocess_env() -> dict[str, str]:
@@ -391,7 +473,8 @@ def _run_document(
     encoding: Optional[str] = None,
     threads: Union[str, int] = "1",
     use_quick: bool = True,
-    simplify_pd: bool = True,
+    de_r1: bool = True,
+    de_k8: bool = True,
     print_simplified_pd: bool = False,
 ) -> list[str]:
     bundle = compile_executables()
@@ -423,8 +506,8 @@ def _run_document(
             "--threads",
             str(threads),
         ]
-    if not simplify_pd:
-        command.append("--no-simplify-pd")
+    command.append("--simplify-r1" if de_r1 else "--no-simplify-r1")
+    command.append("--simplify-nugatory" if de_k8 else "--no-simplify-nugatory")
     if print_simplified_pd:
         command.append("--print-simplified-pd")
 
@@ -441,7 +524,8 @@ def _run_document(
         raise QuickCppkhInterfaceError(detail or f"command exited with code {result.returncode}")
 
     if print_simplified_pd:
-        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return [line.split("\t", 1)[-1] for line in lines]
 
     matches = re.findall(r'"([^"]*)"', result.stdout)
     if not matches:
@@ -456,36 +540,55 @@ def _run_single(pd_text: str, **kwargs: object) -> str:
     return results[0]
 
 
-def _prepare_crossings(pd_code: PdInput, de_r1: bool, de_k8: bool) -> list[list[int]]:
-    crossings = _as_crossings(pd_code)
-    _check_sanity(crossings)
-    if de_r1:
-        crossings = pd_code_de_r1.de_r1(crossings)
-    if de_k8:
-        crossings = pd_code_delete_nugatory.erase_all_nugatory(crossings)
-    return crossings
-
-
 def _prepare_many_for_compute(
     pd_codes: PdManyInput,
-    *,
-    de_r1: bool,
-    de_k8: bool,
-) -> tuple[str, bool, bool]:
-    if de_r1 != de_k8:
-        raise ValueError(
-            "quick_cppkh batch mode supports de_r1 and de_k8 only as a pair. "
-            "Use both True for quick racing with backend simplification or both False for raw cppkh input."
-        )
+) -> str:
     if isinstance(pd_codes, str):
-        return pd_codes.strip(), bool(de_r1), bool(de_r1)
+        return pd_codes.strip()
 
     prepared = []
     for pd_code in pd_codes:
         crossings = _as_crossings(pd_code)
         _check_sanity(crossings)
         prepared.append(_format_pd(crossings))
-    return "\n".join(prepared), bool(de_r1), bool(de_r1)
+    return "\n".join(prepared)
+
+
+def _compute_one(
+    pd_code: PdInput,
+    *,
+    encoding: Optional[str],
+    de_r1: bool,
+    de_k8: bool,
+    show_real_pdcode: bool,
+    threads: Union[str, int],
+) -> str:
+    crossings = _as_crossings(pd_code)
+    _check_sanity(crossings)
+    if crossings == []:
+        return UNKNOT_RESULT
+
+    document = _format_pd(crossings)
+    if show_real_pdcode:
+        simplified = _run_document(
+            document,
+            encoding=encoding,
+            threads=threads,
+            use_quick=False,
+            de_r1=de_r1,
+            de_k8=de_k8,
+            print_simplified_pd=True,
+        )
+        print(f"Real PD code after de_r1 and de_k8: {simplified[0] if simplified else ''}")
+
+    return _run_single(
+        document,
+        encoding=encoding,
+        threads=threads,
+        use_quick=bool(de_r1 and de_k8),
+        de_r1=de_r1,
+        de_k8=de_k8,
+    )
 
 
 def solve_khovanov(
@@ -497,36 +600,14 @@ def solve_khovanov(
 ) -> str:
     """Compute Khovanov homology with a javakh-interface compatible signature."""
 
-    if de_r1 == de_k8:
-        crossings = _as_crossings(pd_code)
-        _check_sanity(crossings)
-        if show_real_pdcode:
-            if de_r1:
-                simplified = _run_document(
-                    _format_pd(crossings),
-                    encoding=encoding,
-                    use_quick=False,
-                    simplify_pd=True,
-                    print_simplified_pd=True,
-                )
-                print(f"Real PD code after de_r1 and de_k8: {simplified[0] if simplified else ''}")
-            else:
-                print(f"Real PD code after de_r1 and de_k8: {crossings}")
-        if crossings == []:
-            return UNKNOT_RESULT
-        return _run_single(
-            _format_pd(crossings),
-            encoding=encoding,
-            use_quick=de_r1,
-            simplify_pd=de_r1,
-        )
-
-    crossings = _prepare_crossings(pd_code, de_r1=de_r1, de_k8=de_k8)
-    if show_real_pdcode:
-        print(f"Real PD code after de_r1 and de_k8: {crossings}")
-    if crossings == []:
-        return UNKNOT_RESULT
-    return _run_single(_format_pd(crossings), encoding=encoding, use_quick=False, simplify_pd=False)
+    return _compute_one(
+        pd_code,
+        encoding=encoding,
+        de_r1=de_r1,
+        de_k8=de_k8,
+        show_real_pdcode=show_real_pdcode,
+        threads="1",
+    )
 
 
 def solve_many_khovanov(
@@ -539,28 +620,27 @@ def solve_many_khovanov(
 ) -> list[str]:
     """Compute many PD codes using quick_cppkh when both simplification flags are enabled."""
 
-    document, simplify_pd, use_quick = _prepare_many_for_compute(pd_codes, de_r1=de_r1, de_k8=de_k8)
-    if show_real_pdcode:
-        if simplify_pd:
-            simplified = _run_document(
-                document,
-                encoding=encoding,
-                threads=threads,
-                use_quick=False,
-                simplify_pd=True,
-                print_simplified_pd=True,
-            )
-            print(f"Real PD code after de_r1 and de_k8: {simplified}")
-        else:
-            print(f"Real PD code after de_r1 and de_k8: {document.splitlines()}")
+    document = _prepare_many_for_compute(pd_codes)
     if not document:
         return []
+    if show_real_pdcode:
+        simplified = _run_document(
+            document,
+            encoding=encoding,
+            threads=threads,
+            use_quick=False,
+            de_r1=de_r1,
+            de_k8=de_k8,
+            print_simplified_pd=True,
+        )
+        print(f"Real PD code after de_r1 and de_k8: {simplified}")
     return _run_document(
         document,
         encoding=encoding,
         threads=threads,
-        use_quick=use_quick,
-        simplify_pd=simplify_pd,
+        use_quick=bool(de_r1 and de_k8),
+        de_r1=de_r1,
+        de_k8=de_k8,
     )
 
 
@@ -575,43 +655,13 @@ def compute_pd(
 ) -> str:
     """Compute Khovanov homology using the same defaults as solve_khovanov."""
 
-    if de_r1 == de_k8:
-        crossings = _as_crossings(pd_code)
-        _check_sanity(crossings)
-        if show_real_pdcode:
-            if de_r1:
-                simplified = _run_document(
-                    _format_pd(crossings),
-                    encoding=encoding,
-                    threads=threads,
-                    use_quick=False,
-                    simplify_pd=True,
-                    print_simplified_pd=True,
-                )
-                print(f"Real PD code after de_r1 and de_k8: {simplified[0] if simplified else ''}")
-            else:
-                print(f"Real PD code after de_r1 and de_k8: {crossings}")
-        if crossings == []:
-            return UNKNOT_RESULT
-        return _run_single(
-            _format_pd(crossings),
-            encoding=encoding,
-            threads=threads,
-            use_quick=de_r1,
-            simplify_pd=de_r1,
-        )
-
-    crossings = _prepare_crossings(pd_code, de_r1=de_r1, de_k8=de_k8)
-    if show_real_pdcode:
-        print(f"Real PD code after de_r1 and de_k8: {crossings}")
-    if crossings == []:
-        return UNKNOT_RESULT
-    return _run_single(
-        _format_pd(crossings),
+    return _compute_one(
+        pd_code,
         encoding=encoding,
+        de_r1=de_r1,
+        de_k8=de_k8,
+        show_real_pdcode=show_real_pdcode,
         threads=threads,
-        use_quick=False,
-        simplify_pd=False,
     )
 
 
@@ -637,9 +687,17 @@ def compute_many_pd(
 
 
 def simplify_pd(pd_code: PdInput, *, de_r1: bool = True, de_k8: bool = True) -> str:
-    """Return the normalized PD string after optional Python R1 and nugatory simplification."""
+    """Return the normalized PD string after optional native R1 and nugatory simplification."""
 
-    return _format_pd(_prepare_crossings(pd_code, de_r1=de_r1, de_k8=de_k8))
+    crossings = _as_crossings(pd_code)
+    _check_sanity(crossings)
+    return _run_single(
+        _format_pd(crossings),
+        use_quick=False,
+        de_r1=de_r1,
+        de_k8=de_k8,
+        print_simplified_pd=True,
+    )
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

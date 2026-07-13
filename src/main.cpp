@@ -386,7 +386,9 @@ bool is_value_option(const std::string& arg) {
 }
 
 bool is_simplify_control_option(const std::string& arg) {
-    return arg == "--simplify-pd" || arg == "--no-simplify-pd" || arg == "--raw-pd";
+    return arg == "--simplify-pd" || arg == "--no-simplify-pd" || arg == "--raw-pd" ||
+           arg == "--simplify-r1" || arg == "--no-simplify-r1" ||
+           arg == "--simplify-nugatory" || arg == "--no-simplify-nugatory";
 }
 
 bool is_direct_only_output_option(const std::string& arg) {

@@ -7,10 +7,11 @@ include their launcher process and any live child processes from racing routes.
 
 ## Local Run
 
-Machine-local run on Windows, 2026-07-12:
+Machine-local run on Windows, 2026-07-13:
 
 - Compiler: WinLibs GCC 16.1.0 x86_64 UCRT POSIX SEH.
-- `cppkh` upstream: `GGN-2015/cppkh` main at `37b3cc3`.
+- `cppkh` upstream: `GGN-2015/cppkh` main at `ff0489e` (`src/main.cpp` is
+  unchanged from the benchmarked `ac7c136` revision).
 - Python interface: local `python_project/quick_cppkh-interface` source tree.
 - Input: `benchmarks/zip_random_100.txt`, the complete deterministic 100-sample
   zip-random fixture from `cpp-pd-code-simplify` (seed `20260708`, source
@@ -26,14 +27,14 @@ python tools/benchmark.py --input benchmarks/zip_random_100.txt --repeat 5 --out
 
 | Engine | Median time | Best time | Median peak RSS | Max peak RSS | Results | Compare |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `cppkh` | 14.831043s | 14.748593s | 88.23 MiB | 88.25 MiB | 100 | OK |
-| `quick_cppkh` | 14.904007s | 14.771155s | 117.89 MiB | 117.93 MiB | 100 | OK |
-| `quick_cppkh_interface` | 15.065402s | 15.025070s | 150.79 MiB | 152.34 MiB | 100 | OK |
+| `cppkh` | 15.051396s | 14.920072s | 88.24 MiB | 88.25 MiB | 100 | OK |
+| `quick_cppkh` | 15.124175s | 14.986409s | 117.80 MiB | 118.12 MiB | 100 | OK |
+| `quick_cppkh_interface` | 15.234423s | 15.151334s | 151.51 MiB | 152.64 MiB | 100 | OK |
 
-Runtime ratios: `cppkh / quick_cppkh = 0.995104x`,
-`cppkh / quick_cppkh_interface = 0.984444x`; lower runtime is better.
-Peak RSS ratios: `quick_cppkh / cppkh = 1.336182x`,
-`quick_cppkh_interface / cppkh = 1.709112x`; lower memory is better.
+Runtime ratios: `cppkh / quick_cppkh = 0.995188x`,
+`cppkh / quick_cppkh_interface = 0.987986x`; lower runtime is better.
+Peak RSS ratios: `quick_cppkh / cppkh = 1.335015x`,
+`quick_cppkh_interface / cppkh = 1.716954x`; lower memory is better.
 
 ![quick_cppkh runtime and memory chart](assets/quick_vs_cppkh_zip_random_100.png)
 
