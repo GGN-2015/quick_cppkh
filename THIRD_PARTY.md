@@ -15,3 +15,7 @@ Both snapshots retain their upstream `LICENSE` files. When updating a snapshot,
 copy the required source and license files from a reviewed commit, update the
 commit above and in `tools/build.py`, then run
 `python tools/test_cli_compatibility.py --rebuild`.
+
+The vendored `cpp-pd-code-simplify` README has one documentation-only local
+change: its BibTeX author spelling is normalized to `GGN\_2015`. Source files,
+licenses, and build inputs remain unchanged from the recorded snapshot.
