@@ -135,3 +135,16 @@ python -m build
 ```
 
 Building is optional for the C++ CLI and does not publish anything.
+
+## Citation
+
+If you use this repository in academic work, please cite it as:
+
+```bibtex
+@software{topologicalknotindexer_quick_cppkh,
+  author = {{TopologicalKnotIndexer contributors}},
+  title = {{quick\_cppkh}},
+  year = {2026},
+  url = {https://github.com/TopologicalKnotIndexer/quick_cppkh}
+}
+```
