@@ -670,11 +670,32 @@ BranchResult run_simplified_branch(const Config& cfg, std::atomic_bool& cancel) 
 
 void replay_result(const ProcessResult& result) {
     if (!result.out.empty()) {
+#ifdef _WIN32
+        // Child output captured from a Windows text stream already contains
+        // CRLF. Replaying that text through another text stream would expand
+        // its LF again and produce CRCRLF (visible as blank lines to readers).
+        for (std::size_t i = 0; i < result.out.size(); ++i) {
+            if (result.out[i] == '\r' && i + 1 < result.out.size() && result.out[i + 1] == '\n') {
+                continue;
+            }
+            std::cout.put(result.out[i]);
+        }
+#else
         std::cout << result.out;
+#endif
         std::cout.flush();
     }
     if (!result.err.empty()) {
+#ifdef _WIN32
+        for (std::size_t i = 0; i < result.err.size(); ++i) {
+            if (result.err[i] == '\r' && i + 1 < result.err.size() && result.err[i + 1] == '\n') {
+                continue;
+            }
+            std::cerr.put(result.err[i]);
+        }
+#else
         std::cerr << result.err;
+#endif
         std::cerr.flush();
     }
 }

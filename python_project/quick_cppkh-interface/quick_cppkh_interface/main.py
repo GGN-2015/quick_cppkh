@@ -123,9 +123,9 @@ def _repo_source_paths() -> Optional[dict[str, pathlib.Path]]:
     for parent in current.parents:
         candidates = {
             "quick_cppkh": parent / "src" / "main.cpp",
-            "cppkh": parent / "external" / "cppkh" / "src" / "main.cpp",
-            "pd_simplify_main": parent / "external" / "cpp-pd-code-simplify" / "src" / "main.cpp",
-            "pd_simplify_include": parent / "external" / "cpp-pd-code-simplify" / "include",
+            "cppkh": parent / "third_party" / "cppkh" / "src" / "main.cpp",
+            "pd_simplify_main": parent / "third_party" / "cpp-pd-code-simplify" / "src" / "main.cpp",
+            "pd_simplify_include": parent / "third_party" / "cpp-pd-code-simplify" / "include",
         }
         if all(path.exists() for path in candidates.values()):
             return candidates
@@ -151,8 +151,8 @@ def _packaged_source_paths() -> Iterator[dict[str, pathlib.Path]]:
             if repo_paths is None:
                 raise QuickCppkhInterfaceError(
                     "quick_cppkh_interface C++ sources were not found. Built wheels include them "
-                    "under quick_cppkh_interface/data/src; editable checkouts require external/cppkh "
-                    "and external/cpp-pd-code-simplify."
+                    "under quick_cppkh_interface/data/src; editable checkouts use the tracked "
+                    "third_party/cppkh and third_party/cpp-pd-code-simplify snapshots."
                 )
             yield repo_paths
 

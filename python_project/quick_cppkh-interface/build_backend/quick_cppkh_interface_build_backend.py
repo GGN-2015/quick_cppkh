@@ -22,18 +22,18 @@ DATA_FILES = [
         "quick_cppkh_interface/data/src/quick_cppkh/main.cpp",
     ),
     (
-        REPO_ROOT / "external" / "cppkh" / "src" / "main.cpp",
+        REPO_ROOT / "third_party" / "cppkh" / "src" / "main.cpp",
         PROJECT_ROOT / "quick_cppkh_interface" / "data" / "src" / "cppkh" / "main.cpp",
         "quick_cppkh_interface/data/src/cppkh/main.cpp",
     ),
     (
-        REPO_ROOT / "external" / "cpp-pd-code-simplify" / "src" / "main.cpp",
+        REPO_ROOT / "third_party" / "cpp-pd-code-simplify" / "src" / "main.cpp",
         PROJECT_ROOT / "quick_cppkh_interface" / "data" / "src" / "pd_simplify" / "src" / "main.cpp",
         "quick_cppkh_interface/data/src/pd_simplify/src/main.cpp",
     ),
     (
         REPO_ROOT
-        / "external"
+        / "third_party"
         / "cpp-pd-code-simplify"
         / "include"
         / "pdcode_simplify"

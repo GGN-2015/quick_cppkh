@@ -44,7 +44,6 @@ build/
 Build/
 build-*/
 dist/
-external/
 benchmark/
 
 # CMake generated files

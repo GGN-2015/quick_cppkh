@@ -53,18 +53,16 @@ $env:CXX = "C:\path\to\g++.exe"
 python your_script.py
 ```
 
-## Build And Publish
+## Build Locally
 
 From this directory:
 
 ```sh
 python -m build
-poetry publish
 ```
 
 The PEP 517 build step runs the custom backend that embeds the tested C++
-sources. Publish the existing artifacts with Poetry; do not use
-`poetry publish --build`.
+sources. This command only creates local artifacts; it does not publish them.
 
 For local testing:
 

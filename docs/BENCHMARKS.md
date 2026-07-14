@@ -10,7 +10,7 @@ include their launcher process and any live child processes from racing routes.
 Machine-local run on Windows, 2026-07-13:
 
 - Compiler: WinLibs GCC 16.1.0 x86_64 UCRT POSIX SEH.
-- `cppkh` upstream: `GGN-2015/cppkh` main at `ff0489e` (`src/main.cpp` is
+- `cppkh` source: `TopologicalKnotIndexer/cppkh` at `ff0489e` (`src/main.cpp` is
   unchanged from the benchmarked `ac7c136` revision).
 - Python interface: local `python_project/quick_cppkh-interface` source tree.
 - Input: `benchmarks/zip_random_100.txt`, the complete deterministic 100-sample
